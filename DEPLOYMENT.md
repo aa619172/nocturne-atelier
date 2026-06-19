@@ -33,6 +33,8 @@ Never commit `.env` — only `.env.example`. Secrets live on Hostinger (or GitHu
 
 ## 2. Hostinger deployment options
 
+**Start here if you have a Hostinger access code:** [HOSTINGER.md](./HOSTINGER.md) explains where to enter SSH, FTP, Git, or hPanel Node.js credentials (never in this repo).
+
 ### Option A — Hostinger Node.js Web App (recommended)
 
 Best fit for this project: one Node process serves API + built frontend.
@@ -52,20 +54,22 @@ Full control for SQLite, webhooks, and custom nginx:
 
 ```bash
 ssh user@your-vps-ip
-git clone https://github.com/YOUR_USER/nocturne-atelier.git
+git clone https://github.com/aa619172/nocturne-atelier.git
 cd nocturne-atelier
 cp .env.example .env
 # Edit .env with production values
 npm ci && npm run build
 ```
 
-Use **PM2** or systemd:
+Use **PM2** (see `ecosystem.config.cjs` and `scripts/deploy.sh`):
 
 ```bash
 npm install -g pm2
-pm2 start npm --name nocturne -- run start
+pm2 start ecosystem.config.cjs
 pm2 save && pm2 startup
 ```
+
+Full SSH access-code steps: [HOSTINGER.md](./HOSTINGER.md).
 
 Configure nginx reverse proxy + Let's Encrypt for HTTPS on port 443 → `localhost:3001`.
 
