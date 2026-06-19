@@ -16,6 +16,8 @@ dist-ssr
 # Local API data (user records, correspondence)
 server/subscribers.json
 server/contacts.json
+server/users.json
+server/orders.json
 server/nocturne.db
 server/nocturne.db-*
 server/*.db

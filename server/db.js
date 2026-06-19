@@ -1,76 +1,90 @@
-import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DB_PATH = path.join(__dirname, 'nocturne.db')
+const USERS_FILE = path.join(__dirname, 'users.json')
+const ORDERS_FILE = path.join(__dirname, 'orders.json')
 
-const db = new Database(DB_PATH)
+function readJson(file, fallback = []) {
+  try {
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf-8'))
+  } catch {
+    /* start fresh */
+  }
+  return fallback
+}
 
-db.pragma('journal_mode = WAL')
+function writeJson(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2))
+}
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    password_hash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    totp_secret TEXT,
-    totp_enabled INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    stripe_session_id TEXT NOT NULL UNIQUE,
-    user_id INTEGER,
-    items_json TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-`)
+function nextId(records) {
+  return records.reduce((max, r) => Math.max(max, r.id ?? 0), 0) + 1
+}
 
 export function getUserByEmail(email) {
-  return db.prepare('SELECT * FROM users WHERE email = ?').get(email)
+  const normalized = email.toLowerCase()
+  return readJson(USERS_FILE).find((u) => u.email.toLowerCase() === normalized) ?? null
 }
 
 export function getUserById(id) {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+  const numericId = Number(id)
+  return readJson(USERS_FILE).find((u) => u.id === numericId) ?? null
 }
 
 export function createUser({ email, passwordHash, name }) {
+  const users = readJson(USERS_FILE)
   const createdAt = new Date().toISOString()
-  const result = db
-    .prepare(
-      'INSERT INTO users (email, password_hash, name, created_at) VALUES (?, ?, ?, ?)',
-    )
-    .run(email, passwordHash, name, createdAt)
-  return getUserById(result.lastInsertRowid)
+  const user = {
+    id: nextId(users),
+    email,
+    password_hash: passwordHash,
+    name,
+    totp_secret: null,
+    totp_enabled: 0,
+    created_at: createdAt,
+  }
+  users.push(user)
+  writeJson(USERS_FILE, users)
+  return user
 }
 
 export function updateUserTotp(id, { secret, enabled }) {
-  db.prepare('UPDATE users SET totp_secret = ?, totp_enabled = ? WHERE id = ?').run(
-    secret ?? null,
-    enabled ? 1 : 0,
-    id,
-  )
-  return getUserById(id)
+  const users = readJson(USERS_FILE)
+  const index = users.findIndex((u) => u.id === id)
+  if (index === -1) return null
+
+  users[index] = {
+    ...users[index],
+    totp_secret: secret ?? null,
+    totp_enabled: enabled ? 1 : 0,
+  }
+  writeJson(USERS_FILE, users)
+  return users[index]
 }
 
 export function createOrder({ stripeSessionId, userId, items, status = 'pending' }) {
+  const orders = readJson(ORDERS_FILE)
   const createdAt = new Date().toISOString()
-  db.prepare(
-    'INSERT INTO orders (stripe_session_id, user_id, items_json, status, created_at) VALUES (?, ?, ?, ?, ?)',
-  ).run(stripeSessionId, userId ?? null, JSON.stringify(items), status, createdAt)
+  orders.push({
+    id: nextId(orders),
+    stripe_session_id: stripeSessionId,
+    user_id: userId ?? null,
+    items_json: JSON.stringify(items),
+    status,
+    created_at: createdAt,
+  })
+  writeJson(ORDERS_FILE, orders)
 }
 
 export function updateOrderStatus(stripeSessionId, status) {
-  db.prepare('UPDATE orders SET status = ? WHERE stripe_session_id = ?').run(
-    status,
-    stripeSessionId,
-  )
+  const orders = readJson(ORDERS_FILE)
+  const index = orders.findIndex((o) => o.stripe_session_id === stripeSessionId)
+  if (index === -1) return
+
+  orders[index] = { ...orders[index], status }
+  writeJson(ORDERS_FILE, orders)
 }
 
 export function sanitizeUser(user) {
@@ -83,5 +97,3 @@ export function sanitizeUser(user) {
     createdAt: user.created_at,
   }
 }
-
-export { db, DB_PATH }

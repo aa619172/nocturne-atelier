@@ -42,6 +42,130 @@ Follow these clicks in order:
 
 If the banner persists after these steps, see [Domain isn't connected (troubleshooting)](#domain-isnt-connected-troubleshooting) — usually the site was never created, the domain is not primary, or the Node app Domains list is missing the custom domain.
 
+If you see a **WordPress "Hello world!"** page (often **Astra** theme) instead of Nocturne Atelier, see [WordPress showing instead of your site](#wordpress-showing-instead-of-your-site).
+
+---
+
+## WordPress showing instead of your site
+
+**Symptom:** `https://nocturneatelier.net` shows a default WordPress page ("Hello world!", Astra theme, wp-admin login) instead of the Nocturne Atelier React storefront and API.
+
+### Why this happens
+
+When Hostinger creates a website for a new domain, it often **auto-installs WordPress** on shared hosting. Your custom **Node.js Web App** (Vite + Express) was either **never deployed** or **nocturneatelier.net is still assigned to the WordPress website**, not to the Node app.
+
+WordPress and a Node.js Web App are **separate hosting types** on Hostinger. They cannot share the same site slot — only **one primary application** can answer on `nocturneatelier.net`.
+
+**Before you change anything in hPanel:** push your latest code to GitHub (`git push origin main`). Hostinger pulls from GitHub, not your PC. Confirm on GitHub that repo `aa619172/nocturne-atelier` on branch `main` has `app.js`, `package.json`, and `package-lock.json` at the repo root.
+
+### What you should NOT do
+
+- **Do not** upload the React `dist/` folder into WordPress (Media Library, themes, or plugins). That only serves static HTML — no Express API, auth, checkout, or Stripe webhooks.
+- **Do not** install a "Node.js plugin" inside WordPress to run this app — it will not work for this stack.
+- **Do not** expect FTP uploads to `public_html` to replace WordPress with a working full-stack app — you need a **Node.js Web App** or **VPS** (see [Scenario 2](#scenario-2--hpanel-nodejs-web-app-business--cloud) or [Scenario 1](#scenario-1--vps-kvm-via-ssh-access-code)).
+
+---
+
+### Option A (recommended): Replace WordPress with the Node.js app
+
+Use this when you want **nocturneatelier.net** to show Nocturne Atelier only (no WordPress blog on the main domain).
+
+#### Step 1 — Identify the WordPress website
+
+1. Sign in at [hpanel.hostinger.com](https://hpanel.hostinger.com).
+2. Left sidebar → **Websites**.
+3. Find the site whose **Primary domain** is **nocturneatelier.net** (or the only site listed if you have one website).
+4. Open it → **Manage**. If you see **WordPress**, **WordPress admin**, **Edit website**, or an **Astra** / **Hello world!** preview, that is the WordPress site currently serving your domain.
+
+#### Step 2 — Remove or detach WordPress from the main domain
+
+Hostinger does not always let you "switch" WordPress to Node.js on the same website record. Pick **one** path:
+
+**Path A — Delete the WordPress website (simplest if you do not need WordPress)**
+
+1. **Websites** → select the WordPress site → **Manage**.
+2. Scroll to **Danger zone** (or **Website settings** → **Delete website**).
+3. Click **Delete website** → confirm. This removes WordPress files and frees the domain for a new app.
+4. If **nocturneatelier.net** still appears attached to a deleted site, wait a minute and refresh **Websites**.
+
+**Path B — Keep the website slot but stop using WordPress on the main domain**
+
+Some plans show **Change application** or let you add a **Node.js Web App** as a second website:
+
+1. **Websites** → **Add Website** → **Node.js Web App** (or **Create website** → **Node.js**).
+2. Leave the old WordPress site alone for now; you will point the domain to the new Node app in Step 4.
+3. If Hostinger only allows one website on your plan, use **Path A** (delete WordPress) or upgrade the plan.
+
+**Path C — Change primary domain on WordPress (free the apex domain)**
+
+If you must keep WordPress temporarily but need **nocturneatelier.net** for Node:
+
+1. **Websites** → WordPress site → **Manage** → **Domains**.
+2. Remove **nocturneatelier.net** as primary (or change primary to a temporary `*.hostingersite.com` hostname).
+3. Proceed with Step 3 to create the Node app and assign **nocturneatelier.net** there.
+
+#### Step 3 — Create and deploy the Node.js Web App
+
+1. **Websites** → **Add Website** → **Node.js Web App** (skip if you already have an empty Node app from Path B).
+2. Open the new site → **Manage**.
+3. **Connect GitHub** (or **Deployments** → **Connect repository**) → authorize Hostinger → select **`aa619172/nocturne-atelier`**, branch **`main`**.
+4. Before the first deploy, open **Settings and redeploy** (gear icon) and set:
+
+   | Setting | Value |
+   |---------|--------|
+   | Framework preset | **Express.js** or **Other** (not Vite, not React) |
+   | Application root | `/` |
+   | Entry file | `app.js` |
+   | Output directory | `dist` |
+   | Node.js version | `20` |
+   | Package manager | `npm` |
+   | Install command | `npm ci --include=dev` |
+   | Build command | `npm run build` |
+   | Start command | `npm run start` |
+
+5. Click **Save** → **Deploy** (or **Redeploy**). Wait until the build log shows success.
+6. **Environment variables** (same Node app screen or **Advanced** → **Environment variables**): set `NODE_ENV=production`, `SITE_URL=https://nocturneatelier.net`, `JWT_SECRET`, Stripe keys, etc. (see [Environment variables](#environment-variables-all-scenarios)).
+
+If deploy fails with "Unsupported framework", see [Fix: "Unsupported framework or invalid project structure"](#fix-unsupported-framework-or-invalid-project-structure) and confirm **`git push origin main`** was done first.
+
+#### Step 4 — Assign nocturneatelier.net to the Node app (not WordPress)
+
+1. **Websites** → your **Node.js Web App** → **Manage** → **Domains**.
+2. Click **Connect domain** or **Add domain** → select **nocturneatelier.net**.
+3. Set **nocturneatelier.net** as **Primary domain**.
+4. **Websites** → **Manage** → **Advanced** → **Node.js** → your app → **Domains** → confirm **nocturneatelier.net** is listed (add it here if missing).
+5. **Security** → **SSL** → enable **Let's Encrypt** for **nocturneatelier.net** (retry if Pending after DNS updates).
+
+#### Step 5 — Verify (required)
+
+1. Open **`https://nocturneatelier.net`** — you should see the **Nocturne Atelier** storefront (dark theme, products), **not** "Hello world!" or WordPress.
+2. Open **`https://nocturneatelier.net/api/health`** — should return JSON like `{"ok":true,...}`.
+3. If WordPress still appears: hard-refresh the browser (Ctrl+F5) or try a private window; confirm **Primary domain** on the WordPress site is no longer **nocturneatelier.net**; wait 5–15 minutes for DNS/SSL cache.
+
+---
+
+### Option B: Keep WordPress on a subdomain (usually not needed)
+
+Use this only if you want **both** a WordPress blog and the Node storefront.
+
+1. **Websites** → WordPress site → **Manage** → **Domains**.
+2. Remove **nocturneatelier.net** as the WordPress **Primary domain**.
+3. **Add subdomain** → **`blog.nocturneatelier.net`** (or `www`) → set that as WordPress primary.
+4. Deploy the Node.js Web App per **Option A, Steps 3–5** and assign **`nocturneatelier.net`** as primary on the Node app only.
+
+Result: **`nocturneatelier.net`** → Nocturne Atelier (Node). **`blog.nocturneatelier.net`** → WordPress.
+
+---
+
+### Quick reference — WordPress vs Node on Hostinger
+
+| What you see | What is serving the domain | Fix |
+|--------------|----------------------------|-----|
+| "Hello world!" / Astra / wp-admin | WordPress website on shared hosting | Option A — deploy Node app, move domain |
+| Blank or Hostinger parking page | Domain not assigned to any app | [Domain purchased at Hostinger](#domain-purchased-at-hostinger-nocturneateliernet) |
+| Site on `*.hostingersite.com` but wrong on custom domain | Node app exists; domain still on WordPress | Option A, Step 4 — primary domain on Node app |
+| Correct UI but API fails | Node app partial deploy / env vars | Check build logs, `/api/health`, [Environment variables](#environment-variables-all-scenarios) |
+
 ---
 
 ## Using your Hostinger access code
@@ -221,9 +345,15 @@ After connecting GitHub repo `aa619172/nocturne-atelier` (branch `main`), open *
 
 **Deploy flow:** Push to `main` on GitHub → Hostinger pulls, builds, and restarts. No access code in the repository.
 
+### Storage (no native modules)
+
+Auth and orders use **JSON file storage** (`server/users.json`, `server/orders.json`) — the same pattern as `contacts.json` and `subscribers.json`. This avoids `better-sqlite3`, which requires Python and node-gyp to compile on Linux and **fails on Hostinger shared Node.js** builds.
+
+Ensure the app process can write under `server/` (default on Node.js Web App). User and order files are gitignored; they are created on first register/checkout.
+
 ### If Node.js Web App still fails
 
-Hostinger shared Node.js hosting may not compile native modules (`better-sqlite3`) or may restrict long-running SQLite file writes. If build/deploy succeeds but auth or DB features fail at runtime, use [Scenario 1 — VPS](#scenario-1--vps-kvm-via-ssh-access-code) instead (full control, PM2, nginx).
+If build/deploy succeeds but runtime errors persist (permissions, webhooks, Stripe), use [Scenario 1 — VPS](#scenario-1--vps-kvm-via-ssh-access-code) instead (full control, PM2, nginx).
 
 If hPanel asks for a **Git deploy password** when using their Git panel (not GitHub OAuth), create it in hPanel → **Git** and enter it only in hPanel — never in this repo.
 
@@ -334,6 +464,7 @@ nslookup -type=NS nocturneatelier.net
 | SSL stuck on "Pending" | DNS not propagated or wrong A record | Fix A/NS at registrar; wait; retry SSL in hPanel |
 | Wrong IP in `nslookup` | Old A record or registrar still using old NS | Update A record or switch nameservers to Hostinger |
 | "Website" missing in hPanel | Only domain purchased, no hosting | **Add Website** (Node.js Web App) then connect domain |
+| **"Hello world!" / WordPress / Astra** | Domain assigned to auto-installed WordPress, Node app not deployed | [WordPress showing instead of your site](#wordpress-showing-instead-of-your-site) |
 | FTP-only plan | Static hosting cannot run this Node app | Upgrade to Node.js Web App or VPS ([Scenario 2](#scenario-2--hpanel-nodejs-web-app-business--cloud) or [Scenario 1](#scenario-1--vps-kvm-via-ssh-access-code)) |
 
 ### Node.js Web App — domain checklist
@@ -404,6 +535,6 @@ Open [hpanel.hostinger.com](https://hpanel.hostinger.com) and check the left men
 - [ ] SSL enabled
 - [ ] Stripe webhook points to production URL
 
-If Hostinger shows **"Domain isn't connected"** and the domain was bought at Hostinger, see [Domain purchased at Hostinger](#domain-purchased-at-hostinger-nocturneateliernet). For external registrars or DNS issues, see [Domain isn't connected (troubleshooting)](#domain-isnt-connected-troubleshooting).
+If Hostinger shows **"Domain isn't connected"** and the domain was bought at Hostinger, see [Domain purchased at Hostinger](#domain-purchased-at-hostinger-nocturneateliernet). For external registrars or DNS issues, see [Domain isn't connected (troubleshooting)](#domain-isnt-connected-troubleshooting). If you see **WordPress "Hello world!"** instead of the app, see [WordPress showing instead of your site](#wordpress-showing-instead-of-your-site).
 
 For Stripe steps and CI templates, see [DEPLOYMENT.md](./DEPLOYMENT.md).
