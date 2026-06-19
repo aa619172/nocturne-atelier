@@ -174,7 +174,7 @@ Hostinger uses the phrase **“access code”** in different places depending on
 
 | What you received | Where to enter it | Use for this project? |
 |-------------------|-------------------|------------------------|
-| **SSH password or one-time browser SSH code** | hPanel → **VPS** → **SSH access**, or your local terminal when `ssh` prompts for a password | **Yes (VPS)** — full Node + SQLite deploy |
+| **SSH password or one-time browser SSH code** | hPanel → **VPS** → **SSH access**, or your local terminal when `ssh` prompts for a password | **Yes (VPS)** — full Node deploy (JSON file storage) |
 | **FTP username + password** | FileZilla, Hostinger File Manager, or hPanel → **Files → FTP Accounts** | **Partial** — static `dist/` only; API must run elsewhere |
 | **Git deploy / repository password** | hPanel → **Websites → Manage → Git** when connecting a repo | **Yes (shared hosting with Git)** — if Node.js app is available on your plan |
 | **hPanel login / temporary access link** | [hpanel.hostinger.com](https://hpanel.hostinger.com) sign-in or email invite link | **Setup only** — not used inside the app |
@@ -347,9 +347,45 @@ After connecting GitHub repo `aa619172/nocturne-atelier` (branch `main`), open *
 
 ### Storage (no native modules)
 
-Auth and orders use **JSON file storage** (`server/users.json`, `server/orders.json`) — the same pattern as `contacts.json` and `subscribers.json`. This avoids `better-sqlite3`, which requires Python and node-gyp to compile on Linux and **fails on Hostinger shared Node.js** builds.
+Auth and orders use **JSON file storage** (`server/users.json`, `server/orders.json`) — the same pattern as `contacts.json` and `subscribers.json`. This avoids `better-sqlite3`, which requires Python and node-gyp to compile on Linux and **fails on Hostinger shared Node.js** builds. **Already fixed on `main`** (no `better-sqlite3` in `package.json`); trigger a redeploy from GitHub if Hostinger still shows an old build error.
 
 Ensure the app process can write under `server/` (default on Node.js Web App). User and order files are gitignored; they are created on first register/checkout.
+
+### If you still see `better-sqlite3` / `node-gyp` / Python errors
+
+This error means Hostinger is building an **older commit** (before `31bb974`) or reusing a **cached install** from when `better-sqlite3` was still in `package.json`. The fix is already on GitHub `main` — there is no `better-sqlite3` in `package.json` or `package-lock.json` anymore.
+
+**1. Confirm GitHub has the fix**
+
+Open [package.json on `main`](https://github.com/aa619172/nocturne-atelier/blob/main/package.json). The `dependencies` block must **not** list `better-sqlite3`. You should see commit `31bb974` ("Replace SQLite with JSON storage for Hostinger deploy") or newer at the top of the commit history.
+
+**2. Confirm hPanel deploys branch `main`**
+
+Websites → your Node.js app → **Manage** → **Settings and redeploy**:
+
+| Setting | Required value |
+|---------|----------------|
+| Repository | `https://github.com/aa619172/nocturne-atelier` |
+| Branch | `main` (not a feature branch or pinned old commit) |
+| Install command | `npm ci --include=dev` |
+
+**3. Clear deployment cache and redeploy**
+
+1. **Settings and redeploy** → enable **Clear build cache** / **Clear cache and redeploy** if the toggle is shown (wording varies by plan).
+2. If there is no cache toggle: open **Deployments** → **Redeploy** on the latest deployment, or disconnect and reconnect the GitHub repo so Hostinger fetches a fresh clone.
+3. Click **Save** → **Deploy** (or **Redeploy**).
+4. Open the new **build log** and check:
+   - **Commit SHA** is `31bb974` or newer. Commits before that (e.g. `d1c8210`, `68c1950`) still included `better-sqlite3`.
+   - Install step runs `npm ci` without mentioning `better-sqlite3`, `node-gyp`, or `Python`.
+   - Build completes with `npm run build` and start uses `npm run start`.
+
+**4. If the log still shows `better-sqlite3`**
+
+- Push any unpushed local commits: `git push origin main`.
+- In hPanel, confirm the connected GitHub account can read `aa619172/nocturne-atelier` and that auto-deploy is tied to `main`.
+- As a last resort on Node.js Web App: delete the app, recreate it from GitHub `main`, re-enter env vars, then deploy (avoids stale server-side cache).
+
+You do **not** need Python or node-gyp on Hostinger for this project after `31bb974`.
 
 ### If Node.js Web App still fails
 
