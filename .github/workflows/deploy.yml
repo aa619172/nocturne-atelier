@@ -1,0 +1,69 @@
+# Template workflow — customize secrets and uncomment the deploy job you need.
+# See DEPLOYMENT.md for Hostinger setup.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+  # --- Option 1: VPS / SSH — git pull on server (recommended for Node + SQLite) ---
+  # deploy-ssh:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+  #   steps:
+  #     - name: Deploy via SSH
+  #       uses: appleboy/ssh-action@v1.2.0
+  #       with:
+  #         host: ${{ secrets.HOSTINGER_SSH_HOST }}
+  #         username: ${{ secrets.HOSTINGER_SSH_USER }}
+  #         key: ${{ secrets.HOSTINGER_SSH_KEY }}
+  #         script: |
+  #           cd ~/nocturne-atelier
+  #           git pull origin main
+  #           npm ci
+  #           npm run build
+  #           pm2 restart nocturne || pm2 start npm --name nocturne -- run start
+
+  # --- Option 2: FTP — upload dist only (static frontend; API must run elsewhere) ---
+  # deploy-ftp:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         name: dist
+  #         path: dist
+  #
+  #     - name: FTP deploy
+  #       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+  #       with:
+  #         server: ${{ secrets.HOSTINGER_FTP_HOST }}
+  #         username: ${{ secrets.HOSTINGER_FTP_USER }}
+  #         password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+  #         local-dir: dist/
+  #         server-dir: public_html/
