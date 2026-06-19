@@ -1,7 +1,7 @@
 {
   "name": "nocturne-atelier",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "main": "app.js",
   "engines": {
@@ -23,7 +23,8 @@
     "build": "tsc -b && vite build",
     "start": "node app.js",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/check-no-sqlite.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -351,39 +351,44 @@ Auth and orders use **JSON file storage** (`server/users.json`, `server/orders.j
 
 Ensure the app process can write under `server/` (default on Node.js Web App). User and order files are gitignored; they are created on first register/checkout.
 
-### If you still see `better-sqlite3` / `node-gyp` / Python errors
+### If build log still shows `better-sqlite3`
 
-This error means Hostinger is building an **older commit** (before `31bb974`) or reusing a **cached install** from when `better-sqlite3` was still in `package.json`. The fix is already on GitHub `main` — there is no `better-sqlite3` in `package.json` or `package-lock.json` anymore.
+GitHub `main` is **clean** — verify with the raw files (no `better-sqlite3` in either):
 
-**1. Confirm GitHub has the fix**
+- [package.json](https://raw.githubusercontent.com/aa619172/nocturne-atelier/main/package.json)
+- Search [package-lock.json](https://raw.githubusercontent.com/aa619172/nocturne-atelier/main/package-lock.json) for `better-sqlite3` (should return nothing)
 
-Open [package.json on `main`](https://github.com/aa619172/nocturne-atelier/blob/main/package.json). The `dependencies` block must **not** list `better-sqlite3`. You should see commit `31bb974` ("Replace SQLite with JSON storage for Hostinger deploy") or newer at the top of the commit history.
+If Hostinger’s build log still installs `better-sqlite3`, it is deploying **wrong source**: an old commit, the wrong repo, or a cached clone/lockfile — not the current GitHub `main`.
 
-**2. Confirm hPanel deploys branch `main`**
+**1. Verify hPanel Git settings (exact values)**
 
 Websites → your Node.js app → **Manage** → **Settings and redeploy**:
 
 | Setting | Required value |
 |---------|----------------|
-| Repository | `https://github.com/aa619172/nocturne-atelier` |
-| Branch | `main` (not a feature branch or pinned old commit) |
-| Install command | `npm ci --include=dev` |
+| Repository URL | `https://github.com/aa619172/nocturne-atelier` — **not** a Hostinger slug repo, fork, or mirror |
+| Branch | `main` only (not a feature branch or pinned old commit) |
+| Install command | `npm ci --include=dev` (matches `.hostinger/deploy.json` and `package.json` → `hostinger.install`) |
 
-**3. Clear deployment cache and redeploy**
+**2. Check the build log commit hash**
 
-1. **Settings and redeploy** → enable **Clear build cache** / **Clear cache and redeploy** if the toggle is shown (wording varies by plan).
-2. If there is no cache toggle: open **Deployments** → **Redeploy** on the latest deployment, or disconnect and reconnect the GitHub repo so Hostinger fetches a fresh clone.
-3. Click **Save** → **Deploy** (or **Redeploy**).
-4. Open the new **build log** and check:
-   - **Commit SHA** is `31bb974` or newer. Commits before that (e.g. `d1c8210`, `68c1950`) still included `better-sqlite3`.
-   - Install step runs `npm ci` without mentioning `better-sqlite3`, `node-gyp`, or `Python`.
-   - Build completes with `npm run build` and start uses `npm run start`.
+Open the latest deployment **build log** and find the git clone / checkout step. The **commit SHA** must be `31bb974` or newer (e.g. the commit that bumped `package.json` `version` to `0.0.1` and added `DEPLOY_VERSION`). Commits before `31bb974` (e.g. `d1c8210`, `68c1950`) still included `better-sqlite3`.
 
-**4. If the log still shows `better-sqlite3`**
+**3. Clear cache and redeploy**
 
-- Push any unpushed local commits: `git push origin main`.
-- In hPanel, confirm the connected GitHub account can read `aa619172/nocturne-atelier` and that auto-deploy is tied to `main`.
-- As a last resort on Node.js Web App: delete the app, recreate it from GitHub `main`, re-enter env vars, then deploy (avoids stale server-side cache).
+1. **Settings and redeploy** → enable **Clear build cache** / **Clear cache and redeploy** if shown.
+2. **Save** → **Deploy** (or **Redeploy**).
+3. Confirm the install step runs `npm ci` without `better-sqlite3`, `node-gyp`, or `Python`.
+
+**4. Delete and recreate the Node.js app (last resort)**
+
+If the log still shows `better-sqlite3` after a cache-clear redeploy:
+
+1. Export / note all **environment variables** from the current app.
+2. **Delete** the Node.js Web App in hPanel (removes stale server-side clone/cache).
+3. **Create** a new Node.js Web App → connect GitHub → repo `aa619172/nocturne-atelier`, branch `main`.
+4. Set install command to `npm ci --include=dev`, re-enter env vars, deploy.
+5. Re-attach **nocturneatelier.net** and SSL if needed.
 
 You do **not** need Python or node-gyp on Hostinger for this project after `31bb974`.
 
