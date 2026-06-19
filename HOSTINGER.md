@@ -25,7 +25,7 @@ Follow these clicks in order:
    |---------|--------|
    | Framework | **Express.js** or **Other** |
    | Application root | `/` |
-   | Entry file | `server.js` |
+   | Entry file | `app.js` |
    | Output directory | `dist` |
    | Install | `npm ci --include=dev` |
    | Build | `npm run build` |
@@ -144,8 +144,38 @@ This repo is a **Vite frontend + Express API** monolith (not a pure Vite static 
 
 - `vite.config.ts` makes it look like a static Vite app (no server entry).
 - The Express app lived under `server/index.js` instead of a root entry file.
+- Hostinger’s Express tutorial defaults to **`app.js`**, not `server/index.js`.
 
-The repo now includes a root **`server.js`** entry that starts Express and serves `dist/` in production. In hPanel, **do not** use the **Vite** preset — choose **Express.js** or **Other**.
+The repo now includes root entry files **`app.js`** (canonical), plus **`server.js`** and **`index.js`** aliases. In hPanel, **do not** use the **Vite** or **React** preset — choose **Express.js** or **Other**.
+
+**If you still see this error after connecting GitHub**, the cause is almost always one of:
+
+1. **Unpushed commits** — Hostinger reads GitHub, not your PC. Run `git push origin main` so `app.js` and `package.json` are on `main`.
+2. **Wrong framework preset** — Auto-detect picked **Vite** (static-only). Change to **Express.js** or **Other** manually.
+3. **Wrong entry file** — Set **Entry file** to `app.js` (or `server.js` / `index.js`). Do not leave it blank or `server/index.js`.
+4. **Wrong application root** — Must be `/` (repo root where `package.json` lives).
+
+### Persistent "Unsupported framework" — hPanel click-by-click
+
+Use this when the error appears **before** the first successful deploy (during repo import or Settings and redeploy):
+
+1. **Websites** → your Node.js site → **Manage**.
+2. Open **Settings and redeploy** (or the gear icon on the Node.js dashboard).
+3. **Framework preset** → open the dropdown → select **Express.js** (first choice) or **Other** (if Express is not listed).
+   - Do **not** select: Vite, React, Vue, Angular, or any frontend-only preset.
+4. **Application root** → type `/` (single slash, repository root).
+5. **Entry file** → type `app.js` exactly (lowercase, no path prefix).
+6. **Output directory** → type `dist` (required when framework is **Other**; safe to set for Express too).
+7. **Node.js version** → `20`.
+8. **Package manager** → `npm`.
+9. **Install command** → `npm ci --include=dev`
+10. **Build command** → `npm run build`
+11. **Start command** → `npm run start`
+12. Click **Save** then **Redeploy** (or **Deploy** on first setup).
+
+**First-time GitHub import:** After selecting repo `aa619172/nocturne-atelier` and branch `main`, Hostinger may show auto-detected settings. **Change the framework dropdown before clicking Deploy** — do not accept a Vite/React suggestion.
+
+**Verify GitHub has the files:** On GitHub, open the repo root and confirm you see `package.json`, `app.js`, `server.js`, and `package-lock.json` on branch `main`. If `app.js` is missing, push local commits first.
 
 ### Exact hPanel Node.js settings
 
@@ -160,7 +190,7 @@ After connecting GitHub repo `aa619172/nocturne-atelier` (branch `main`), open *
 | **Install command** | `npm ci --include=dev` |
 | **Build command** | `npm run build` |
 | **Start command** | `npm run start` |
-| **Entry file** | `server.js` |
+| **Entry file** | `app.js` |
 | **Output directory** | `dist` (only required when framework is **Other**) |
 
 `npm ci --include=dev` ensures Vite and TypeScript (devDependencies) are installed before `npm run build`. If install already includes dev deps on your plan, plain `npm ci` also works.
@@ -177,7 +207,7 @@ After connecting GitHub repo `aa619172/nocturne-atelier` (branch `main`), open *
   | Branch | `main` |
   | Framework | **Express.js** or **Other** |
   | Application root | `/` |
-  | Entry file | `server.js` |
+  | Entry file | `app.js` |
   | Output directory | `dist` |
   | Node version | `20` |
   | Install | `npm ci --include=dev` |

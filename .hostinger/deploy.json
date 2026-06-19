@@ -1,0 +1,9 @@
+{
+  "framework": "express",
+  "entry": "app.js",
+  "output": "dist",
+  "build": "npm run build",
+  "start": "npm run start",
+  "install": "npm ci --include=dev",
+  "node": "20"
+}

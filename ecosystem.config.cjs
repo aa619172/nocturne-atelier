@@ -3,7 +3,7 @@ module.exports = {
   apps: [
     {
       name: 'nocturne',
-      script: 'server.js',
+      script: 'app.js',
       cwd: __dirname,
       instances: 1,
       autorestart: true,

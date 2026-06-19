@@ -1,7 +1,5 @@
 /**
- * Hostinger / production entry point.
- * hPanel expects a root-level server file (server.js, app.js, or index.js).
+ * Legacy entry alias — Hostinger also accepts server.js.
+ * Canonical entry is app.js (see package.json "main").
  */
-process.env.NODE_ENV ??= 'production'
-
-await import('./server/index.js')
+import './app.js'

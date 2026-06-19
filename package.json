@@ -3,16 +3,25 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "server.js",
+  "main": "app.js",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "hostinger": {
+    "framework": "express",
+    "entry": "app.js",
+    "output": "dist",
+    "build": "npm run build",
+    "start": "npm run start",
+    "install": "npm ci --include=dev",
+    "node": "20"
   },
   "scripts": {
     "dev": "vite",
     "dev:api": "node server/index.js",
     "dev:all": "concurrently -n web,api -c cyan,magenta \"npm run dev\" \"npm run dev:api\"",
     "build": "tsc -b && vite build",
-    "start": "node server.js",
+    "start": "node app.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
