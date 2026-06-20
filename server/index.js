@@ -76,8 +76,14 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
+const distReady = fs.existsSync(DIST_DIR)
+
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, env: config.nodeEnv })
+  res.json({
+    ok: true,
+    env: config.nodeEnv,
+    frontend: config.isProduction ? (distReady ? 'dist' : 'missing') : 'dev-proxy',
+  })
 })
 
 app.use('/api/auth', authRouter)
@@ -142,17 +148,23 @@ app.get('/api/chat/greeting', (_req, res) => {
   res.json({ greeting: getGateKeeperGreeting() })
 })
 
-if (config.isProduction && fs.existsSync(DIST_DIR)) {
-  app.use(express.static(DIST_DIR, { index: false }))
+if (config.isProduction) {
+  if (distReady) {
+    app.use(express.static(DIST_DIR, { index: false }))
 
-  app.get(/^(?!\/api).*/, (_req, res) => {
-    res.sendFile(path.join(DIST_DIR, 'index.html'))
-  })
+    app.get(/^(?!\/api).*/, (_req, res) => {
+      res.sendFile(path.join(DIST_DIR, 'index.html'))
+    })
+  } else {
+    console.warn(
+      `[startup] Production mode but ${DIST_DIR} is missing — run "npm run build" before start.`,
+    )
+  }
 }
 
-app.listen(config.port, () => {
-  console.log(`Nocturne Atelier API listening on http://localhost:${config.port}`)
-  if (config.isProduction && fs.existsSync(DIST_DIR)) {
+app.listen(config.port, config.host, () => {
+  console.log(`Nocturne Atelier listening on ${config.host}:${config.port} (${config.nodeEnv})`)
+  if (config.isProduction && distReady) {
     console.log(`Serving frontend from ${DIST_DIR}`)
   }
 })

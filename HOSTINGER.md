@@ -9,6 +9,49 @@ This app is a single Node process: Express API + Vite-built frontend (`npm run b
 
 ---
 
+## Hostinger configuration checklist
+
+Use these **exact** values in hPanel → **Websites** → your Node.js Web App → **Manage** → **Settings and redeploy**. They match `.hostinger/deploy.json`, `package.json` → `hostinger`, and root entry `app.js`.
+
+| hPanel setting | Value |
+|----------------|-------|
+| **Repository** | `https://github.com/aa619172/nocturne-atelier` |
+| **Branch** | `main` |
+| **Framework preset** | **Express.js** or **Other** (not Vite, not React) |
+| **Application root** | `/` |
+| **Entry file** | `app.js` |
+| **Output directory** | `dist` |
+| **Node.js version** | `20` (matches `.nvmrc`) |
+| **Package manager** | `npm` |
+| **Install command** | `npm ci --include=dev` |
+| **Build command** | `npm run build` |
+| **Start command** | `npm run start` |
+
+**Environment variables** (hPanel → **Environment variables** — never commit to git):
+
+| Variable | Production value |
+|----------|------------------|
+| `NODE_ENV` | `production` |
+| `PORT` | Leave unset (Hostinger sets `PORT`; app default is `3000`) |
+| `HOST` | Optional — default `0.0.0.0` |
+| `SITE_URL` | `https://nocturneatelier.net` |
+| `JWT_SECRET` | Long random string (required) |
+| `STRIPE_SECRET_KEY` | Stripe live secret key |
+| `STRIPE_WEBHOOK_SECRET` | From webhook `https://nocturneatelier.net/api/webhooks/stripe` |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | Optional — Stripe publishable key |
+
+**After deploy, verify:**
+
+1. Build log commit SHA is **`8c4b7c1` or newer** (no `better-sqlite3` in install step).
+2. `https://nocturneatelier.net/api/health` → `{"ok":true,"env":"production","frontend":"dist"}`.
+3. `https://nocturneatelier.net` → Nocturne Atelier storefront (not WordPress).
+
+**If deploy fails or shows stale errors:** enable **Clear build cache and redeploy**, confirm framework is **Express.js** / **Other** (not Vite), and that GitHub `main` has `app.js` at repo root.
+
+**Domain:** **Websites** → **Manage** → **Domains** → connect **nocturneatelier.net** as primary → **SSL** (Let's Encrypt).
+
+---
+
 ## Domain purchased at Hostinger (nocturneatelier.net)
 
 If Hostinger shows **"Domain isn't connected to your website"** and you bought **nocturneatelier.net** at Hostinger, you usually **do not** need to change nameservers or A records at another registrar. DNS is already on Hostinger. The domain is just **not assigned** to a website or Node.js app yet.
@@ -372,7 +415,7 @@ Websites → your Node.js app → **Manage** → **Settings and redeploy**:
 
 **2. Check the build log commit hash**
 
-Open the latest deployment **build log** and find the git clone / checkout step. The **commit SHA** must be `31bb974` or newer (e.g. the commit that bumped `package.json` `version` to `0.0.1` and added `DEPLOY_VERSION`). Commits before `31bb974` (e.g. `d1c8210`, `68c1950`) still included `better-sqlite3`.
+Open the latest deployment **build log** and find the git clone / checkout step. The **commit SHA** must be **`8c4b7c1` or newer** (JSON storage, no native modules). Commits before `31bb974` still included `better-sqlite3`.
 
 **3. Clear cache and redeploy**
 
@@ -526,7 +569,8 @@ Set these in `.env` on VPS or in hPanel **Environment variables** — never in g
 | Variable | Production value |
 |----------|------------------|
 | `NODE_ENV` | `production` |
-| `PORT` | Leave unset on Hostinger (platform sets `PORT`, default `3000`) or `3001` on VPS |
+| `PORT` | Leave unset on Hostinger (platform sets `PORT`; app default `3000`) or `3001` on VPS |
+| `HOST` | Optional — default `0.0.0.0` (bind all interfaces) |
 | `SITE_URL` | `https://nocturneatelier.net` |
 | `JWT_SECRET` | Long random string |
 | `STRIPE_SECRET_KEY` | From Stripe Dashboard |
